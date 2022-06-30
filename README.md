@@ -1,6 +1,12 @@
 # solardata
 ### Data download for solar research applications
 
+#### Installation
+
+```
+python3 -m pip install git+https://git@github.com/jararias/solardata#egg=solardata
+```
+
 #### Usage pattern for BSRN and NOAA data:
 
 ```python
