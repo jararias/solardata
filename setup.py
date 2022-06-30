@@ -47,6 +47,7 @@ setup(
         'matplotlib',
         'openpyxl',
         'timezonefinder',
+        'importlib_resources',
         'bs4',
         'tqdm',
     ],
