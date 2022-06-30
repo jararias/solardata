@@ -1,4 +1,7 @@
-### Usage pattern for BSRN and NOAA data:
+# solardata
+## Library to download data for solar research applications
+
+#### Usage pattern for BSRN and NOAA data:
 
 ```python
 from solardata import noaa
@@ -24,13 +27,19 @@ import solarpandas as sp
 sdf = sp.SolarDataFrame(data=data, metadata=metadata)
 ```
 
+To show the current local database location:
+
+```python
+noaa.config.load()
+```
+
 To simply download data to the local database:
 
 ```python
 noaa.download_database(<site>, <start_year>)
 ```
 
-### Usage pattern for AERONET:
+#### Usage pattern for AERONET:
 
 ```python
 from solardata import aeronet
