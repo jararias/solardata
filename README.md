@@ -1,5 +1,5 @@
 # solardata
-## Library to download data for solar research applications
+### Data download for solar research applications
 
 #### Usage pattern for BSRN and NOAA data:
 
