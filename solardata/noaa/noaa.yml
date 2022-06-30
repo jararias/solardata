@@ -1,0 +1,3 @@
+localdir: /mnt/trastero/data/NOAA
+server: aftp.cmdl.noaa.gov
+remotedir: data/radiation/baseline

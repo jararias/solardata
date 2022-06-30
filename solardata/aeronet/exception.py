@@ -1,0 +1,3 @@
+
+class IOConfigError(Exception):
+    pass

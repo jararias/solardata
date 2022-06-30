@@ -1,0 +1,89 @@
+alt:
+    location: Alert, Nunavut
+    country: Canada
+    latitude: 82.4508
+    longitude: -62.5072
+    elevation: 190.
+    init_year: 2004
+    url: https://www.esrl.noaa.gov/gmd/dv/site/ALT.html
+
+bao:
+    location: Boulder Atmospheric Observatory, CO
+    country: USA
+    latitude: 40.0500
+    longitude: -105.004
+    elevation: 1584.
+    init_year: 1992
+    url: https://www.esrl.noaa.gov/gmd/dv/site/BAO.html
+
+ber:
+    location: Prospect Hill, Bermuda
+    country: UK
+    latitude: 32.3008
+    longitude: -64.766
+    elevation: 60.
+    init_year: 1992
+    url: https://www.esrl.noaa.gov/gmd/dv/site/BER.html
+
+brw:
+    location: Barrow, Alaska
+    country: USA
+    latitude: 71.3230
+    longitude: -156.6114
+    elevation: 11.
+    init_year: 1976
+    url: https://www.esrl.noaa.gov/gmd/dv/site/BRW.html
+
+kwj:
+    location: Kwajalein
+    country: Marshall Islands
+    latitude: 8.7150
+    longitude: 167.7230
+    elevation: 10.
+    init_year: 1992
+    url: https://www.esrl.noaa.gov/gmd/dv/site/KWJ.html
+
+mlo:
+    location: Mauna Loa Observatory, Hawaii
+    country: USA
+    latitude: 19.5362
+    longitude: -155.5763
+    elevation: 3397.
+    init_year: 1976
+    url: https://www.esrl.noaa.gov/gmd/dv/site/MLO.html
+
+smo:
+    location: Tutulia
+    country: American Samoa
+    latitude: 14.2474
+    longitude: -170.5644
+    elevation: 42.
+    init_year: 1976
+    url: https://www.esrl.noaa.gov/gmd/dv/site/SMO.html
+
+spo:
+    location: South Pole
+    country: Antarctica
+    latitude: 89.98
+    longitude: -24.8
+    elevation: 2810.
+    init_year: 1978
+    url: https://www.esrl.noaa.gov/gmd/dv/site/SPO.html
+
+sum:
+    location: Summit
+    country: Greenland
+    latitude: 72.5962
+    longitude: -38.422
+    elevation: 3209.
+    init_year: 1978
+    url: https://www.esrl.noaa.gov/gmd/dv/site/SUM.html
+
+thd:
+    location: Trinidad Head, CA
+    country: USA
+    latitude: 41.0541
+    longitude: -124.151
+    elevation: 107.
+    init_year: 2002
+    url: https://www.esrl.noaa.gov/gmd/dv/site/THD.html

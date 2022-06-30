@@ -1,0 +1,4 @@
+include MANIFEST.in
+include bsrn/*.yml
+include noaa/*.yml
+include aeronet/*.yml
