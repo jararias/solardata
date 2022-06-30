@@ -24,7 +24,7 @@ import solarpandas as sp
 sdf = sp.SolarDataFrame(data=data, metadata=metadata)
 ```
 
-To download data to the local database:
+To simply download data to the local database:
 
 ```python
 noaa.download_database(<site>, <start_year>)

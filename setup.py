@@ -3,8 +3,8 @@ from setuptools import setup
 
 version = '0.1'
 
-# with open('solardata/_version.py', 'w') as f:
-#     f.write(f'__version__ = "{version}"\n')
+with open('solardata/_version.py', 'w') as f:
+    f.write(f'__version__ = "{version}"\n')
 
 setup(
     name='solardata',
@@ -53,5 +53,5 @@ setup(
     python_requires=">=3.6"
 )
 
-# if os.path.exists('solardata/_version.py'):
-#     os.remove('solardata/_version.py')
+if os.path.exists('solardata/_version.py'):
+    os.remove('solardata/_version.py')
