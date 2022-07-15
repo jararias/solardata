@@ -1,3 +1,4 @@
-localdir: /mnt/trastero/data/NOAA
+# the !environ constructor interpolates environment variables. Don't forget quotation marks: !environ "..."
+localdir: !environ "{HOME}/.solardata/NOAA"
 server: aftp.cmdl.noaa.gov
 remotedir: data/radiation/baseline

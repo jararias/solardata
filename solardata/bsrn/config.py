@@ -1,15 +1,20 @@
 
-from __future__ import absolute_import, print_function, division
+import os
+from pathlib import Path
 
 import yaml
 import importlib_resources
-from pathlib import Path
 from loguru import logger
 
 from .exception import IOConfigError
 
 
 logger.disable(__name__)
+
+
+yaml.SafeLoader.add_constructor(
+    u'!environ', lambda loader, node: loader.construct_scalar(node).format(**os.environ)
+)
 
 
 def read():
@@ -21,7 +26,7 @@ def read():
             f'missing configuration file {config_fn.as_posix()}')
 
     with config_fn.open('r') as f:
-        bsrn_conf = yaml.load(f.read(), yaml.FullLoader)
+        bsrn_conf = yaml.safe_load(f.read())
 
     return bsrn_conf, config_fn
 

@@ -1,6 +1,5 @@
 
-from __future__ import absolute_import, print_function, division
-
+import os
 from pathlib import Path
 
 import yaml
@@ -13,6 +12,11 @@ from .exception import IOConfigError
 logger.disable(__name__)
 
 
+yaml.SafeLoader.add_constructor(
+    u'!environ', lambda loader, node: loader.construct_scalar(node).format(**os.environ)
+)
+
+
 def read():
     root_dir = importlib_resources.files('solardata')
     config_fn = root_dir.joinpath('noaa/noaa.yml')
@@ -22,7 +26,7 @@ def read():
             f'missing configuration file {config_fn.as_posix()}')
 
     with config_fn.open('r') as f:
-        noaa_conf = yaml.load(f.read(), yaml.FullLoader)
+        noaa_conf = yaml.safe_load(f.read())
 
     return noaa_conf, config_fn
 
@@ -39,8 +43,6 @@ def load(conf=None):
     noaa_conf['localdir'] = Path(noaa_conf.get('localdir'))
     if not noaa_conf.get('localdir').exists():
         noaa_conf.get('localdir').mkdir(parents=True)
-
-    noaa_conf.setdefault('server', 'ftp.bsrn.awi.de')
 
     return noaa_conf
 

@@ -168,11 +168,33 @@ def download_database(sites='all', start_year=1998, end_year=None):
         workers.join()
 
 
-def load_data(site, year, month, timeout=None, force=False):
+def load_data(site, years, months, timeout=None, force=False):
     # the time stamps is referred to the center of the interval
 
-    # check the files in the local database and download if missing
-    resources.noaa_download(site, year, month, timeout, force)
+    import itertools as it
+    import multiprocessing as mp
+
+    periods = list(it.product(sorted(years), sorted(months)))
+
+    try:
+        workers = mp.Pool(mp.cpu_count())
+
+        download_args = [
+            (site, year, month, timeout, force) for year, month in periods
+        ]
+        
+        download = workers.starmap_async(
+            resources.noaa_download, download_args, chunksize=1)
+
+    except Exception as exc:
+        raise exc
+
+    finally:
+        workers.close()
+        workers.join()
+
+    # # check the files in the local database and download if missing
+    # resources.noaa_download(site, year, month, timeout, force)
 
     noaa_config = config.load()
     localdir = noaa_config.get('localdir')
@@ -188,40 +210,51 @@ def load_data(site, year, month, timeout=None, force=False):
         logger.warning(f'site {site} is missing in the '
                        'inventory. Please add it!')
 
-    zip_fname = site_dir.joinpath(
-        resources.noaa_filename(site, year, month, ext='zip')
-    )
-    if zip_fname.exists():
-        logger.info(f'reading file {zip_fname.name}')
-        data = pd.read_csv(zip_fname, sep='\s+', skiprows=4,
-                           header=None, parse_dates=[[0, 1, 2, 3, 4]])
-        data['times'] = pd.to_datetime(data['0_1_2_3_4'], format='%Y %m %d %H %M')
-        data = data[[5, 6, 7]].rename(columns={5: 'dni', 6: 'dif', 7: 'ghi'})
-        data.index.name = 'times_utc'
-        data[data == -999.] = float('nan')
+    all_data = []
+
+    for year, month in periods:
+        logger.debug(f'loading data for {year}-{month:02d}')
+
+        zip_fname = site_dir.joinpath(
+            resources.noaa_filename(site, year, month, ext='zip')
+        )
+
+        if zip_fname.exists():
+            logger.info(f'reading file {zip_fname.name}')
+            data = pd.read_csv(zip_fname, sep='\s+', skiprows=4,
+                            header=None, parse_dates=[[0, 1, 2, 3, 4]])
+            data['times'] = pd.to_datetime(data['0_1_2_3_4'], format='%Y %m %d %H %M')
+            data = data[[5, 6, 7]].rename(columns={5: 'dni', 6: 'dif', 7: 'ghi'})
+            data.index.name = 'times_utc'
+            data[data == -999.] = float('nan')
+            
+            all_data.append(data)
+            continue
+            # return data, metadata
+
+        daily_files = [
+            site_dir.joinpath(str(year)).joinpath(fn)
+            for fn in resources.noaa_filename(site, year, month, ext='dat')
+        ]
+
+        def file_reader(fname):
+            kwargs = dict(header=None, parse_dates=[[0, 2, 3, 4, 5]])
+            data = pd.read_csv(fname, sep='\s+', skiprows=2, **kwargs)
+            data['times'] = pd.to_datetime(data['0_2_3_4_5'], format='%Y %m %d %H %M')
+            data = data.set_index(keys='times', drop=True).drop(columns=['0_2_3_4_5'])
+            data = data.drop(columns=[1, 6, 7] + list(range(9, 48, 2)))
+            data[data == -9999.9] = float('nan')
+            data.columns = ['ghi', 'uw_solar', 'dni', 'dif', 'dw_ir', 'dw_casetemp',
+                            'dw_dometemp', 'uw_ir', 'uw_castemp', 'uw_dometemp',
+                            'uvb', 'par', 'netsolar', 'netir', 'totalnet', 'temp',
+                            'rh', 'windspd', 'windir', 'pressure']
+            data.index.name = 'times_utc'
+            return data
         
-        return data, metadata
+        data = pd.concat([file_reader(fn) for fn in sorted(daily_files)], axis=0)
 
-    site_dir = site_dir.joinpath(str(year))
-    daily_files = [
-        site_dir.joinpath(fn)
-        for fn in resources.noaa_filename(site, year, month, ext='dat')
-    ]
-
-    def file_reader(fname):
-        kwargs = dict(header=None, parse_dates=[[0, 2, 3, 4, 5]])
-        data = pd.read_csv(fname, sep='\s+', skiprows=2, **kwargs)
-        data['times'] = pd.to_datetime(data['0_2_3_4_5'], format='%Y %m %d %H %M')
-        data = data.set_index(keys='times', drop=True).drop(columns=['0_2_3_4_5'])
-        data = data.drop(columns=[1, 6, 7] + list(range(9, 48, 2)))
-        data[data == -9999.9] = float('nan')
-        data.columns = ['ghi', 'uw_solar', 'dni', 'dif', 'dw_ir', 'dw_casetemp',
-                        'dw_dometemp', 'uw_ir', 'uw_castemp', 'uw_dometemp',
-                        'uvb', 'par', 'netsolar', 'netir', 'totalnet', 'temp',
-                        'rh', 'windspd', 'windir', 'pressure']
-        data.index.name = 'times_utc'
-        return data
+        all_data.append(data)
+        # return data, metadata
         
-    data = pd.concat([file_reader(fn) for fn in sorted(daily_files)], axis=0)
-
-    return data, metadata
+    all_data = pd.concat(all_data, axis=0)
+    return all_data, metadata

@@ -62,6 +62,7 @@ def noaa_download(site, year, month, timeout=None, force=False):
         site_dir.joinpath(f'{year}/{fn}')
         for fn in noaa_filename(site, year, month, ext='dat')
     ]
+
     missing_dat_files = [fn for fn in dat_fnames if not fn.exists()]
     if (not missing_dat_files) and (not force):
         return
