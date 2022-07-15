@@ -1,89 +1,208 @@
 alt:
     location: Alert, Nunavut
     country: Canada
+    network: Baseline
     latitude: 82.4508
     longitude: -62.5072
     elevation: 190.
     init_year: 2004
+    remotedir: data/radiation/baseline
     url: https://www.esrl.noaa.gov/gmd/dv/site/ALT.html
 
 bao:
     location: Boulder Atmospheric Observatory, CO
     country: USA
+    network: Baseline
     latitude: 40.0500
     longitude: -105.004
     elevation: 1584.
     init_year: 1992
+    remotedir: data/radiation/baseline
     url: https://www.esrl.noaa.gov/gmd/dv/site/BAO.html
 
 ber:
     location: Prospect Hill, Bermuda
     country: UK
+    network: Baseline
     latitude: 32.3008
     longitude: -64.766
     elevation: 60.
     init_year: 1992
+    remotedir: data/radiation/baseline
     url: https://www.esrl.noaa.gov/gmd/dv/site/BER.html
 
 brw:
     location: Barrow, Alaska
     country: USA
+    network: Baseline
     latitude: 71.3230
     longitude: -156.6114
     elevation: 11.
     init_year: 1976
+    remotedir: data/radiation/baseline
     url: https://www.esrl.noaa.gov/gmd/dv/site/BRW.html
 
 kwj:
     location: Kwajalein
     country: Marshall Islands
+    network: Baseline
     latitude: 8.7150
     longitude: 167.7230
     elevation: 10.
     init_year: 1992
+    remotedir: data/radiation/baseline
     url: https://www.esrl.noaa.gov/gmd/dv/site/KWJ.html
 
 mlo:
     location: Mauna Loa Observatory, Hawaii
     country: USA
+    network: Baseline
     latitude: 19.5362
     longitude: -155.5763
     elevation: 3397.
     init_year: 1976
+    remotedir: data/radiation/baseline
     url: https://www.esrl.noaa.gov/gmd/dv/site/MLO.html
 
 smo:
     location: Tutulia
     country: American Samoa
+    network: Baseline
     latitude: 14.2474
     longitude: -170.5644
     elevation: 42.
     init_year: 1976
+    remotedir: data/radiation/baseline
     url: https://www.esrl.noaa.gov/gmd/dv/site/SMO.html
 
 spo:
     location: South Pole
     country: Antarctica
+    network: Baseline
     latitude: 89.98
     longitude: -24.8
     elevation: 2810.
     init_year: 1978
+    remotedir: data/radiation/baseline
     url: https://www.esrl.noaa.gov/gmd/dv/site/SPO.html
 
 sum:
     location: Summit
     country: Greenland
+    network: Baseline
     latitude: 72.5962
     longitude: -38.422
     elevation: 3209.
     init_year: 1978
+    remotedir: data/radiation/baseline
     url: https://www.esrl.noaa.gov/gmd/dv/site/SUM.html
 
 thd:
     location: Trinidad Head, CA
     country: USA
+    network: Baseline
     latitude: 41.0541
     longitude: -124.151
     elevation: 107.
     init_year: 2002
+    remotedir: data/radiation/baseline
     url: https://www.esrl.noaa.gov/gmd/dv/site/THD.html
+
+abq:
+    location: Albuquerque, NM
+    country: USA
+    network: Solrad
+    latitude: 35.03796
+    longitude: -106.62211
+    elevation: 1617.
+    init_year: 2002
+    remotedir: data/radiation/solrad
+    url: https://gml.noaa.gov/dv/site/index.php?stacode=ABQ
+
+bis:
+    location: Bismarck, ND
+    country: USA
+    network: Solrad
+    latitude: 46.7718
+    longitude: -100.7596
+    elevation: 511.
+    init_year: 2002
+    remotedir: data/radiation/solrad
+    url: https://gml.noaa.gov/dv/site/index.php?stacode=BIS
+
+hnx:
+    location: Hanford, CA
+    country: USA
+    network: Solrad
+    latitude: 36.3140
+    longitude: -119.632
+    elevation: 73.
+    init_year: 2002
+    remotedir: data/radiation/solrad
+    url: https://gml.noaa.gov/dv/site/index.php?stacode=HNX
+
+msn:
+    location: Madison, WI
+    country: USA
+    network: Solrad
+    latitude: 43.07250
+    longitude: -89.41133
+    elevation: 271.
+    init_year: 2002
+    remotedir: data/radiation/solrad
+    url: https://gml.noaa.gov/dv/site/index.php?stacode=MSN
+
+ort:
+    location: Oak Ridge, TN
+    country: USA
+    network: Solrad
+    latitude: 35.96101
+    longitude: -84.28838
+    elevation: 334.
+    init_year: 2002
+    remotedir: data/radiation/solrad
+    url: https://gml.noaa.gov/dv/site/index.php?stacode=ORT
+
+sea:
+    location: Seattle, WA
+    country: USA
+    network: Solrad
+    latitude: 47.68685
+    longitude: -122.25667
+    elevation: 20.
+    init_year: 2002
+    remotedir: data/radiation/solrad
+    url: https://gml.noaa.gov/dv/site/index.php?stacode=SEA
+
+slc:
+    location: Salt Lake City, UT
+    country: USA
+    network: Solrad
+    latitude: 40.77220
+    longitude: -111.95495
+    elevation: 1288.
+    init_year: 2002
+    remotedir: data/radiation/solrad
+    url: https://gml.noaa.gov/dv/site/index.php?stacode=SLC
+
+ste:
+    location: Sterling, VA
+    country: USA
+    network: Solrad
+    latitude: 38.97673
+    longitude: -77.48379
+    elevation: 85.
+    init_year: 2002
+    remotedir: data/radiation/solrad
+    url: https://gml.noaa.gov/dv/site/index.php?stacode=STE
+
+tlh:
+    location: Tallahassee, FL
+    country: USA
+    network: Solrad
+    latitude: 30.39675
+    longitude: -84.32955
+    elevation: 18.
+    init_year: 2002
+    remotedir: data/radiation/solrad
+    url: https://gml.noaa.gov/dv/site/index.php?stacode=TLH

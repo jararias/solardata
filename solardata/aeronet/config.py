@@ -35,7 +35,7 @@ def load(conf=None):
     aero_conf, config_fn = read() if conf is None else (conf, None)
 
     if config_fn is not None:
-        logger.info(f'Configuration file: {config_fn}')
+        logger.debug(f'Configuration file: {config_fn}')
 
     if aero_conf.get('localdir', None) is None:
         raise IOConfigError('missing option `localdir` in config file')

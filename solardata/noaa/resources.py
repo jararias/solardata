@@ -48,7 +48,9 @@ def noaa_download(site, year, month, timeout=None, force=False):
     noaa_config = config.load()
     server = noaa_config.get('server')
     localdir = noaa_config.get('localdir')
-    remotedir = noaa_config.get('remotedir')
+
+    site_metadata = inventory().get(site, None)
+    remotedir = site_metadata.get('remotedir')
 
     site_dir = localdir.joinpath(site)
     if not site_dir.exists():

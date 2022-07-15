@@ -177,7 +177,7 @@ def load_data(site, years, months, timeout=None, force=False):
     periods = list(it.product(sorted(years), sorted(months)))
 
     try:
-        workers = mp.Pool(mp.cpu_count())
+        workers = mp.Pool(2)  # mp.cpu_count())
 
         download_args = [
             (site, year, month, timeout, force) for year, month in periods
@@ -230,28 +230,47 @@ def load_data(site, years, months, timeout=None, force=False):
             
             all_data.append(data)
             continue
-            # return data, metadata
 
         daily_files = [
             site_dir.joinpath(str(year)).joinpath(fn)
             for fn in resources.noaa_filename(site, year, month, ext='dat')
         ]
 
+        if metadata['network'] == 'Baseline':
+            columns_to_drop = [1, 6, 7] + list(range(9, 48, 2))
+            column_names = [
+                'ghi', 'uw_solar', 'dni', 'dif', 'dw_ir', 'dw_casetemp', 'dw_dometemp',
+                'uw_ir', 'uw_castemp', 'uw_dometemp', 'uvb', 'par', 'netsolar', 'netir',
+                'totalnet', 'temp', 'rh', 'windspd', 'windir', 'pressure'
+            ]
+        
+        if metadata['network'] == 'Solrad':
+            columns_to_drop = [1, 6, 7] + list(range(9, 24, 2)) + list(range(24, 30, 1))
+            column_names = [
+                'ghi', 'dni', 'dif', 'uvb', 'uvb_temp', 'dpir', 'dpirc', 'dpird'
+            ]
+
         def file_reader(fname):
-            kwargs = dict(header=None, parse_dates=[[0, 2, 3, 4, 5]])
-            data = pd.read_csv(fname, sep='\s+', skiprows=2, **kwargs)
-            data['times'] = pd.to_datetime(data['0_2_3_4_5'], format='%Y %m %d %H %M')
-            data = data.set_index(keys='times', drop=True).drop(columns=['0_2_3_4_5'])
-            data = data.drop(columns=[1, 6, 7] + list(range(9, 48, 2)))
-            data[data == -9999.9] = float('nan')
-            data.columns = ['ghi', 'uw_solar', 'dni', 'dif', 'dw_ir', 'dw_casetemp',
-                            'dw_dometemp', 'uw_ir', 'uw_castemp', 'uw_dometemp',
-                            'uvb', 'par', 'netsolar', 'netir', 'totalnet', 'temp',
-                            'rh', 'windspd', 'windir', 'pressure']
-            data.index.name = 'times_utc'
+            try:
+                kwargs = dict(header=None, parse_dates=[[0, 2, 3, 4, 5]])
+                data = pd.read_csv(fname, sep='\s+', skiprows=2, **kwargs)
+                data['times'] = pd.to_datetime(data['0_2_3_4_5'], format='%Y %m %d %H %M')
+                data = data.set_index(keys='times', drop=True).drop(columns=['0_2_3_4_5'])
+                data = data.drop(columns=columns_to_drop, errors='ignore')
+                data[data == -9999.9] = float('nan')
+                data.columns = column_names
+                data.index.name = 'times_utc'
+            except Exception as exc:
+                logger.error(f'exception raised while reading {fname}: {exc.args[0]}. Skipping file!!')
+                data = None
+
             return data
         
-        data = pd.concat([file_reader(fn) for fn in sorted(daily_files)], axis=0)
+        data = pd.concat(
+            # exclude missing days... (i.e., when file_reader gets None)
+            list(filter(lambda e: e is not None, [file_reader(fn) for fn in sorted(daily_files)])),
+            axis=0
+        )
 
         all_data.append(data)
         # return data, metadata
