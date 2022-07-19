@@ -168,19 +168,23 @@ def download_database(sites='all', start_year=1998, end_year=None):
         workers.join()
 
 
-def load_data(site, years, months, timeout=None, force=False):
-    # the time stamps is referred to the center of the interval
+def load_data(site, years, months, timeout=None, force=False, n_threads=2):
+    # timestamps are referred to the center of the interval
+    # n_threads is for the http downloader
 
     import itertools as it
     import multiprocessing as mp
 
+    # check the files in the local database and download if missing
+    
     periods = list(it.product(sorted(years), sorted(months)))
 
     try:
         workers = mp.Pool(2)  # mp.cpu_count())
 
         download_args = [
-            (site, year, month, timeout, force) for year, month in periods
+            (site, year, month, timeout, force, n_threads)
+            for year, month in periods
         ]
         
         download = workers.starmap_async(
@@ -192,9 +196,6 @@ def load_data(site, years, months, timeout=None, force=False):
     finally:
         workers.close()
         workers.join()
-
-    # # check the files in the local database and download if missing
-    # resources.noaa_download(site, year, month, timeout, force)
 
     noaa_config = config.load()
     localdir = noaa_config.get('localdir')
@@ -213,7 +214,7 @@ def load_data(site, years, months, timeout=None, force=False):
     all_data = []
 
     for year, month in periods:
-        logger.debug(f'loading data for {year}-{month:02d}')
+        logger.debug(f'loading data for site {site} and period {year}-{month:02d}')
 
         zip_fname = site_dir.joinpath(
             resources.noaa_filename(site, year, month, ext='zip')
@@ -236,44 +237,67 @@ def load_data(site, years, months, timeout=None, force=False):
             for fn in resources.noaa_filename(site, year, month, ext='dat')
         ]
 
-        if metadata['network'] == 'Baseline':
-            columns_to_drop = [1, 6, 7] + list(range(9, 48, 2))
+        if metadata['network'].casefold() == 'baseline':
             column_names = [
-                'ghi', 'uw_solar', 'dni', 'dif', 'dw_ir', 'dw_casetemp', 'dw_dometemp',
-                'uw_ir', 'uw_castemp', 'uw_dometemp', 'uvb', 'par', 'netsolar', 'netir',
-                'totalnet', 'temp', 'rh', 'windspd', 'windir', 'pressure'
+ 	            'jday', 'dt', 'zen', 'dw_solar', 'qc_dwsolar', 'uw_solar', 'qc_uwsolar',
+                'direct_n', 'qc_direct_n', 'diffuse', 'qc_diffuse', 'dw_ir', 'qc_dwir',
+                'dw_casetemp', 'qc_dwcasetemp', 'dw_dometemp', 'qc_dwdometemp', 'uw_ir',
+                'qc_uwir', 'uw_casetemp', 'qc_uwcasetemp', 'uw_dometemp', 'qc_uwdometemp',
+                'uvb', 'qc_uvb', 'par', 'qc_par', 'netsolar', 'qc_netsolar', 'netir',
+                'qc_netir', 'totalnet', 'qc_totalnet', 'temp', 'qc_temp', 'rh', 'qc_rh',
+                'windspd', 'qc_windspd', 'winddir', 'qc_winddir', 'pressure', 'qc_pressure'
             ]
-        
-        if metadata['network'] == 'Solrad':
-            columns_to_drop = [1, 6, 7] + list(range(9, 24, 2)) + list(range(24, 30, 1))
+            alt_column_names = column_names
+            columns_to_drop = ['jday', 'dt']
+       
+        if metadata['network'].casefold() == 'solrad':
             column_names = [
-                'ghi', 'dni', 'dif', 'uvb', 'uvb_temp', 'dpir', 'dpirc', 'dpird'
+                'jday', 'dt', 'zen', 'dw_psp', 'qc_dwpsp', 'direct', 'qc_direct',
+                'diffuse', 'qc_diffuse', 'uvb', 'qc_uvb' ,'uvb_temp', 'qc_uvb_temp',
+                'std_dw_psp', 'std_direct', 'std_diffuse', 'std_uvb'
             ]
+            alt_column_names = [  # for Madison after 18 June 2009
+                'jday', 'dt', 'zen', 'dw_psp', 'qc_dwpsp', 'direct', 'qc_direct',
+                'diffuse', 'qc_diffuse', 'uvb', 'qc_uvb' ,'uvb_temp', 'qc_uvb_temp',
+                'dpir', 'qc_dpir', 'dpirc', 'qc_dpirc', 'dpird', 'qc_dpird',
+                'std_dw_psp', 'std_direct', 'std_diffuse', 'std_uvb', 'std_uvb',
+                'std_dpir', 'std_dpirc', 'std_dpird'
+            ]
+            columns_to_drop = ['jday', 'dt']
 
         def file_reader(fname):
+            if not fname.exists():
+                logger.warning(f'missing file {fname}')
+                return None
+
             try:
                 kwargs = dict(header=None, parse_dates=[[0, 2, 3, 4, 5]])
                 data = pd.read_csv(fname, sep='\s+', skiprows=2, **kwargs)
                 data['times'] = pd.to_datetime(data['0_2_3_4_5'], format='%Y %m %d %H %M')
                 data = data.set_index(keys='times', drop=True).drop(columns=['0_2_3_4_5'])
+                try:
+                    data.columns = column_names
+                except Exception as exc:
+                    data.columns = alt_column_names
                 data = data.drop(columns=columns_to_drop, errors='ignore')
                 data[data == -9999.9] = float('nan')
-                data.columns = column_names
                 data.index.name = 'times_utc'
             except Exception as exc:
-                logger.error(f'exception raised while reading {fname}: {exc.args[0]}. Skipping file!!')
+                logger.error(f'exception raised while reading {fname}: {exc.args}. Skipping file!!')
                 data = None
 
             return data
         
-        data = pd.concat(
-            # exclude missing days... (i.e., when file_reader gets None)
-            list(filter(lambda e: e is not None, [file_reader(fn) for fn in sorted(daily_files)])),
-            axis=0
-        )
+        # exclude missing days... (i.e., when file_reader gets None)
+        data = list(filter(lambda e: e is not None, [file_reader(fn) for fn in sorted(daily_files)]))
+        if not data:
+            continue
 
-        all_data.append(data)
+        all_data.append(pd.concat(data, axis=0))
         # return data, metadata
-        
+    
+    if not all_data:
+        return None, metadata
+
     all_data = pd.concat(all_data, axis=0)
     return all_data, metadata

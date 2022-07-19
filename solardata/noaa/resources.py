@@ -4,8 +4,10 @@ import re
 import time
 import ftplib
 import importlib_resources
+from multiprocessing.pool import ThreadPool
 
 import yaml
+import requests
 import pandas as pd
 from loguru import logger
 
@@ -44,9 +46,71 @@ def noaa_filename(site, year, month, ext='zip'):
     return None
 
 
-def noaa_download(site, year, month, timeout=None, force=False):
+def noaa_download(site, year, month, timeout=None, force=False, n_threads=2):
+    logger.debug(f'downloading data for site {site}, year {year} and month {month}')
+    missing_dat_files = noaa_http_download(site, year, month, force, n_threads)
+    if missing_dat_files:
+        noaa_ftp_download(site, year, month, timeout, force)
+
+
+def noaa_http_download(site, year, month, force=False, n_threads=2):
+    
+    def download_url(url, out_fname):
+        try:
+            logger.debug(f'downloading {url} to {out_fname}')
+            req = requests.get(url, stream=True)
+            if req.status_code == requests.codes.ok:
+                if not out_fname.parent.exists():
+                    logger.debug(f'creating dir {out_fname.parent}')
+                    out_fname.parent.mkdir(parents=True)
+                with open(out_fname, 'wb') as f:
+                    for data in req:
+                        f.write(data)
+                logger.success(f'{out_fname} downloaded!')
+        except Exception as exc:
+            logger.error(f'Exception: {exc.args}')
+        finally:
+            return url
+    
     noaa_config = config.load()
-    server = noaa_config.get('server')
+    server = noaa_config.get('http_server')
+    localdir = noaa_config.get('localdir')
+
+    site_metadata = inventory().get(site, None)
+    remotedir = site_metadata.get('remotedir')
+
+    site_dir = localdir.joinpath(site)
+    if not site_dir.exists():
+        site_dir.mkdir(parents=True)
+
+    dat_fnames = [
+        site_dir.joinpath(f'{year}/{fn}')
+        for fn in noaa_filename(site, year, month, ext='dat')
+    ]
+
+    missing_dat_files = [fn for fn in dat_fnames if not fn.exists()]
+    logger.debug(f'found {len(missing_dat_files)} files to download')
+    if (not missing_dat_files) and (not force):
+        return
+    
+    try:
+        args = [
+            (f'{server}/{remotedir}/{site}/{year}/{fn.name}', fn)
+            for fn in missing_dat_files]
+        pool = ThreadPool(n_threads)
+        pool.starmap_async(download_url, args)
+    except Exception as exc:
+        raise exc
+    finally:
+        pool.close()
+        pool.join()
+
+    return [fn for fn in dat_fnames if not fn.exists()]  # still missing files
+    
+
+def noaa_ftp_download(site, year, month, timeout=None, force=False):
+    noaa_config = config.load()
+    server = noaa_config.get('ftp_server')
     localdir = noaa_config.get('localdir')
 
     site_metadata = inventory().get(site, None)
