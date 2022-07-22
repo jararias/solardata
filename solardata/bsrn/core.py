@@ -546,28 +546,25 @@ def load_data(site, years, months=range(1, 13), full_output=False,
         dirname = os.path.dirname(relpath)
         basename = os.path.basename(relpath)
 
-        if (not os.path.exists(local_fn) and
-                check_remote_server_on_missing_file):
+        if (not local_fn.exists()) and check_remote_server_on_missing_file:
             try:
                 resources.bsrn_download(site, year, month, timeout)
             except BSRNDownloadError:
                 pass
 
-        if not os.path.exists(local_fn):
+        if not local_fn.exists():
             logger.info(
                 styler.join(
-                    'missing file <BSRN local database>',
-                    f'{os.path.sep}{dirname}{os.path.sep}',
-                    styler.format(basename, 'yellow')
+                    f'missing file {local_fn.parent}{os.path.sep}',
+                    styler.format(local_fn.name, 'yellow')
                 )
             )
             return
 
         logger.info(
             styler.join(
-                'reading file <BSRN local database>',
-                f'{os.path.sep}{dirname}{os.path.sep}',
-                styler.format(basename, 'green')
+                f'reading file {local_fn.parent}{os.path.sep}',
+                styler.format(local_fn.name, 'green')
             )
         )
 

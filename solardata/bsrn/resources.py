@@ -29,19 +29,19 @@ def bsrn_download(site, year, month, user=None, password=None, server=None, time
     bsrn_config = config.load()
     
     if server is None:
-        logger.warning('Server not provided. Using default server from config file')
+        logger.debug('Server not provided. Using default server from config file')
         server = bsrn_config['server']
-        logger.warning(f'server: {server}')
+        logger.debug(f'server: {server}')
 
     if user is None:
-        logger.warning('User not provided. Using user fron netrc file')
+        logger.debug('User not provided. Using user fron netrc file')
         try:
             user, _, _ = netrc().authenticators(server)
         except Exception as exc:
             raise exc
 
     if password is None:
-        logger.warning('Password not provided. Using password fron netrc file')
+        logger.debug('Password not provided. Using password fron netrc file')
         try:
             _, _, password = netrc().authenticators(server)
         except Exception as exc:
@@ -74,7 +74,7 @@ def bsrn_download(site, year, month, user=None, password=None, server=None, time
         site_dir.mkdir(parents=True)
 
     site_fn = site_dir.joinpath(requested_fn)
-    logger.info(f'Downloading file {requested_fn} from BSRN server')
+    logger.info(f'downloading file {requested_fn} from BSRN server')
 
     try:
         with site_fn.open('wb') as f:
@@ -86,7 +86,7 @@ def bsrn_download(site, year, month, user=None, password=None, server=None, time
     finally:
         ftp.close()
 
-    logger.info(f'File {requested_fn} added to the local data base')
+    logger.success(f'{requested_fn} added to {site_fn.parent}')
 
 
 def update_list_of_remote_files(user=None, password=None, server=None, force=False):
@@ -107,25 +107,25 @@ def update_list_of_remote_files(user=None, password=None, server=None, force=Fal
             return
 
     if server is None:
-        logger.warning('Server not provided. Using default server from config file')
+        logger.debug('Server not provided. Using default server from config file')
         server = bsrn_config['server']
-        logger.warning(f'server: {server}')
+        logger.debug(f'server: {server}')
 
     if user is None:
-        logger.warning('User not provided. Using user fron netrc file')
+        logger.debug('User not provided. Using user fron netrc file')
         try:
             user, _, _ = netrc().authenticators(server)
         except Exception as exc:
             raise exc
 
     if password is None:
-        logger.warning('Password not provided. Using password fron netrc file')
+        logger.debug('Password not provided. Using password fron netrc file')
         try:
             _, _, password = netrc().authenticators(server)
         except Exception as exc:
             raise exc
 
-    logger.info('updating local copy of BSRN remote files')
+    logger.debug('updating local copy of BSRN remote files')
     try:
         ftp = ftplib.FTP(server, user, password)
         ftp.login()
