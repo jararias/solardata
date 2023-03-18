@@ -5,6 +5,7 @@ import os
 import json
 import datetime
 import warnings
+import itertools as itt
 from copy import copy
 
 from loguru import logger
@@ -18,7 +19,7 @@ from . import config
 from .description_tables import TableA4, TableA5
 
 
-logger.disable(__name__)
+logger.enable(__name__)
 
 
 class ExcelWriter(object):
@@ -81,24 +82,31 @@ class BSRNMetadata(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, traceback):
-        # pylint: disable=redefined-builtin
-        json.dump(self.metadata, open(self.fname, 'wt'))
+    def __exit__(self, *args, **kwargs):  # type, value, traceback):
+        self.save()
         return True
+
+    def save(self, fname=None):
+        json.dump(self.metadata, open(fname or self.fname, 'wt'))
 
     def get(self, year, month, force_reload=False):
         period = f'{year}{month:02d}'
-        do_reload = True if period not in self.metadata else \
-            (not self.metadata[period] and force_reload)
+        do_reload = True
+        if period in self.metadata:
+            do_reload = (len(self.metadata[period]) == 0) and (force_reload is True)
         if do_reload:
-            logger.info(f'Retrieving year={year} & month={month}')
-            try:
-                _, metadata, logrec = load_bsrn_data(
-                    self.site, year, month, full_output=True,
-                    check_remote_server_on_missing_file=False)
-            except Exception:  # pylint: disable=broad-except
+            logger.debug(f'Retrieving year={year} & month={month} @ {self.site}')
+
+            result = load_bsrn_data(
+                self.site, year, month, full_output=True,
+                check_remote_server_on_missing_file=False)
+
+            if result is None:
+                logger.warning(f'missing period {period}')
                 self.metadata[period] = {}
                 return self.metadata[period]
+
+            _, metadata, logrec = result
 
             if 'surface_type' in metadata:
                 metadata['surface_type'] = TableA4.get(
@@ -114,15 +122,11 @@ class BSRNMetadata(object):
             availability = {}
             for lrid, lrdata in logrec.items():
                 availability[lrid] = {}
-                for key, values in lrdata.items():
-                    if key in ('description', 'utc_times'):
-                        continue
-                    try:
-                        n_samples = len(lrdata['utc_times'])
+                for key in filter(lambda k: k not in ('description', 'utc_times'), lrdata):
+                    values = lrdata[key]
+                    if (n_samples := len(lrdata['utc_times'])) > 0:
                         n_valid_samples = len(values[~np.isnan(values)])
                         availability[lrid][key] = n_valid_samples / n_samples
-                    except Exception:  # pylint: disable=broad-except
-                        pass
                 availability[lrid]['description'] = lrdata['description']
             metadata['data_availability'] = availability
 
@@ -131,14 +135,12 @@ class BSRNMetadata(object):
         return self.metadata[period]
 
     def get_chronology(self, what=None, years=None, force_reload=False):
-        years = years or self._years
         chronology = {}
-        for year in years:
-            for month in range(1, 13):
-                period = f'{year}{month:02d}'
-                metadata = self.get(year, month, force_reload=force_reload)
-                chronology[period] = \
-                    metadata if what is None else metadata.get(what, None)
+        for year, month in itt.product(years or self._years, range(1, 13)):
+            if (metadata := self.get(year, month, force_reload=force_reload)) is None:
+                continue
+            chronology[f'{year}{month:02d}'] = (
+                metadata if what is None else metadata.get(what, None))
         return chronology
 
     def get_messages(self, years=None):
@@ -150,42 +152,26 @@ class BSRNMetadata(object):
         chronology = self.get_chronology(years=years)
 
         instr_chrono = {}
-        for period in chronology:
-
-            if not (metadata := chronology[period]):
-                continue
-
-            if metadata is None:
-                continue
+        for period, metadata in chronology.items():
 
             if 'measurements' not in metadata:
+                logger.warning(f'missing `measurements` @ {self.site}:{period}')
                 continue
 
             for measurement in metadata['measurements']:
                 instr_id = str(measurement['id_instr'])
-                quantities = metadata['quantity_measured']
                 id_qty = measurement.get('id_qty', None)
-                try:
-                    qty = {} if id_qty is None else quantities[id_qty]
-                except Exception:  # pylint: disable=broad-except
-                    qty = {} if id_qty is None else quantities[str(id_qty)]
+                qties = metadata['quantity_measured']
 
-                if instr_id not in instr_chrono:
-                    instr_chrono[instr_id] = {}
-                instr_chrono[instr_id][period] = {}
-                instr_chrono[instr_id][period].update(qty)
-
-                # UPDATED, 2023-03-17, to make consistent with a change in the
-                #   format of instruments in metadata
-                # - instr_name = f'radiation_instrument_{instr_id}'
-                # - if instr_name not in metadata:
-                # -     continue
-
-                # - instr_data = metadata[instr_name]
+                instr_chrono.setdefault(instr_id, {})
+                instr_chrono[instr_id].setdefault(period, {})
+                instr_chrono[instr_id][period].update(
+                    {'quantity_measured': qties.get(id_qty, qties.get(str(id_qty), {}))}
+                )
 
                 instr_data = None
                 for instrument in metadata['instruments']:
-                    if instrument['wrmc_id'] == instr_id:
+                    if instr_id == str(instrument['wrmc_id']):
                         instr_data = instrument
                         break
 
@@ -194,59 +180,45 @@ class BSRNMetadata(object):
                     continue
 
                 instr_chrono[instr_id][period].update(
-                    {'manufacturer': instr_data.get('manufacturer'),
-                     'model': instr_data.get('model'),
-                     'serial_number': instr_data.get('serial_number'),
-                     'wrmc_id': instr_data.get('wrmc_id')
-                     })
+                    {
+                        'manufacturer': instr_data.get('manufacturer'),
+                        'model': instr_data.get('model'),
+                        'serial_number': instr_data.get('serial_number'),
+                        'wrmc_id': str(instr_data.get('wrmc_id'))
+                    }
+                )
 
                 calibration_bands = {}
                 for band in range(1, 4):
                     calibration_bands[f'calibration_band_{band}'] = {
-                        'wavelength': instr_data.get(f'wavelength_of_band_{band}'),
-                        'bandwidth': instr_data.get(f'bandwidth_of_band_{band}'),
-                        'start_of_calibration_period':
-                            instr_data.get(f'start_of_calibration_period_of_band_{band}'),
-                        'end_of_calibration_period':
-                            instr_data.get(f'end_of_calibration_period_of_band_{band}'),
-                        'mean_calibration_coefficient':
-                            instr_data.get(f'mean_calibration_coefficient_of_band_{band}'),
-                        'standard_error_of_calibration_coefficient':
-                            instr_data.get(f'standard_error_of_calibration_coefficient_of_band_{band}'),
-                        'number_of_comparisons':
-                            instr_data.get(f'number_of_comparisons_of_band_{band}')
+                        kw: instr_data.get(f'{kw}_of_band_{band}')
+                        for kw in ('wavelength', 'bandwidth', 'start_of_calibration_period',
+                                   'end_of_calibration_period', 'mean_calibration_coefficient',
+                                   'standard_error_of_calibration_coefficient', 'number_of_comparisons')
                     }
                 instr_chrono[instr_id][period].update(calibration_bands)
 
-                for attr_name in instr_data:
-                    if '_band_' in attr_name:
-                        continue
-                    if attr_name in instr_chrono[instr_id][period]:
-                        continue
-                    instr_chrono[instr_id][period][attr_name] = instr_data.get(attr_name)
+                for attr_name in filter(lambda name: '_band_' not in name, instr_data):
+                    instr_chrono[instr_id][period].setdefault(attr_name, instr_data.get(attr_name))
 
         # remove void calibration bands
 
         def missing_period(instr_id, period, band_number):
             band_name = f'calibration_band_{band_number}'
-            if band_name not in instr_chrono[instr_id][period]:
+            this_instr_chrono = instr_chrono[instr_id][period]
+            if (instr_band := this_instr_chrono.get(band_name, None)) is None:
                 return True
-            instr_band = instr_chrono[instr_id][period][band_name]
-            return all([(val is None) or (val == 'XXX')
-                        for val in instr_band.values()])
+            return all(val is None or val == 'XXX' for val in instr_band.values())
 
-        for instr_id in instr_chrono:
-            for band_number in range(1, 4):
-                calibration_band_is_missing = all([
-                    missing_period(instr_id, period, band_number)
-                    for period in instr_chrono[instr_id]])
-                if calibration_band_is_missing:
-                    for period in instr_chrono[instr_id]:
-                        band_name = f'calibration_band_{band_number}'
-                        instr_chrono[instr_id][period] = {
-                            k: v
-                            for k, v in instr_chrono[instr_id][period].items()
-                            if k != band_name}
+        for instr_id, band_number in itt.product(instr_chrono, range(1, 4)):
+            periods = instr_chrono[instr_id]
+            band_name = f'calibration_band_{band_number}'
+            if all(missing_period(instr_id, period, band_number) for period in periods):
+                for period in instr_chrono[instr_id]:
+                    instr_chrono[instr_id][period] = {
+                        k: v for k, v in instr_chrono[instr_id][period].items()
+                        if k != band_name
+                    }
 
         if instrument_id is None:
             return instr_chrono
