@@ -172,8 +172,8 @@ def availability(site=None, year=None, month=None, print_table=False,
             if month is None:
                 return sites
 
-            return {st: {yr: {month: sites[st][yr][month]}
-                         for yr in sites[st].keys()}
+            return {st: {yr: {month: sites[st][yr][month]}  # pylint: disable=unsubscriptable-object
+                         for yr in sites[st].keys()}  # pylint: disable=unsubscriptable-object
                     for st in sites.keys()}
 
         if month is None:
@@ -406,6 +406,7 @@ def download_database(sites='all', dry_run=True, force=False):
                 resources.bsrn_download, files_to_download, chunksize=1)
 
             while not download.ready():
+                # pylint: disable=protected-access
                 tasks_completed = n_files - download._number_left
                 pbar.update(int(tasks_completed - pbar.n))
 
@@ -526,7 +527,7 @@ def load_data(site, years, months=range(1, 13), full_output=False,
         try:
             # seconds
             data['resolution'] = guess_time_resolution(data['values']).seconds
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             pass
 
         metadata = data.copy()
@@ -542,9 +543,6 @@ def load_data(site, years, months=range(1, 13), full_output=False,
 
         fn = resources.bsrn_filename(site, year, month, 'dat.gz')
         local_fn = localdir.joinpath(site).joinpath(fn)
-        relpath = os.path.relpath(local_fn.as_posix(), localdir)
-        dirname = os.path.dirname(relpath)
-        basename = os.path.basename(relpath)
 
         if (not local_fn.exists()) and check_remote_server_on_missing_file:
             try:
@@ -601,7 +599,7 @@ def load_data(site, years, months=range(1, 13), full_output=False,
                 lrcontents = lrparser(txt_data[first_line:last_line + 1])
                 for attr_name in lrcontents:
                     logger.debug(f'  - attribute `{attr_name}` retrieved')
-            except Exception as exc:
+            except Exception as exc:  # pylint: disable=broad-except
                 logger.debug(
                     'error parsing metadata logical record '
                     f'{lrid}: {exc.args[0]} [Skipping]')
@@ -877,7 +875,7 @@ def load_data(site, years, months=range(1, 13), full_output=False,
 
             try:
                 contents['values'] = pd.concat(series, axis=1)
-            except Exception as exc:
+            except Exception as exc:  # pylint: disable=broad-except
                 logger.debug(
                     'an exception has occurred while retrieving '
                     f'the logical record 0100: {exc}')

@@ -16,7 +16,7 @@ logger.disable(__name__)
 def parse_float(x):
     try:
         return float(x)
-    except Exception:
+    except ValueError:
         return float('nan')
 
 
@@ -68,9 +68,9 @@ def parse(txt, pattern, logical_record_id, formatter=None, missing=None):
     regex = re.compile(pattern)
     m = regex.match(txt)
     if m is None:
+        msg = 'logical record {0}, mismatch of regular expression {1} and line {2}'
         raise BSRNParsingError(
-            'mismatch of regular expression {0} and line {1}'.format(
-                pattern, '<empty line>' if txt == '' else txt))
+            msg.format(logical_record_id, pattern, '<empty line>' if txt == '' else txt))
 
     groups = map(lambda s: s.strip(), m.groups())
 
@@ -302,7 +302,11 @@ def parse_logical_record_0007(txt_data):
 
 
 def parse_logical_record_0008(txt_data):
-    contents = {}
+
+    # UPDATED, 2023-03-17: the instruments can be repeated in a single file,
+    #   hence they have to be archived in a list (not a dict)
+    # - contents = {}
+    contents = {'instruments': []}
     logical_record_id = '0008'
 
     nline = 1
@@ -397,12 +401,15 @@ def parse_logical_record_0008(txt_data):
         nline += 1
         radinstr['calibration_remarks'].append(txt_data[nline].strip())
 
-        radinstr_key = 'radiation_instrument_{0}'.format(radinstr['wrmc_id'])
-        contents[radinstr_key] = {}
-        contents[radinstr_key].update(radinstr)
+        # - radinstr_key = 'radiation_instrument_{0}'.format(radinstr['wrmc_id'])
+        # - contents[radinstr_key] = {}
+        # - contents[radinstr_key].update(radinstr)
+        contents['instruments'].append(radinstr)
 
-        nline += 1
         n_instrument += 1
+        nline += 1
+        if (len(txt_data) - nline) < 10:
+            nline = len(txt_data)
 
     return contents
 

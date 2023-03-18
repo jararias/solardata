@@ -4,6 +4,7 @@ from __future__ import absolute_import, print_function, division
 import os
 import json
 import datetime
+import warnings
 from copy import copy
 
 from loguru import logger
@@ -81,6 +82,7 @@ class BSRNMetadata(object):
         return self
 
     def __exit__(self, type, value, traceback):
+        # pylint: disable=redefined-builtin
         json.dump(self.metadata, open(self.fname, 'wt'))
         return True
 
@@ -91,10 +93,10 @@ class BSRNMetadata(object):
         if do_reload:
             logger.info(f'Retrieving year={year} & month={month}')
             try:
-                data, metadata, logrec = load_bsrn_data(
+                _, metadata, logrec = load_bsrn_data(
                     self.site, year, month, full_output=True,
                     check_remote_server_on_missing_file=False)
-            except Exception:
+            except Exception:  # pylint: disable=broad-except
                 self.metadata[period] = {}
                 return self.metadata[period]
 
@@ -119,7 +121,7 @@ class BSRNMetadata(object):
                         n_samples = len(lrdata['utc_times'])
                         n_valid_samples = len(values[~np.isnan(values)])
                         availability[lrid][key] = n_valid_samples / n_samples
-                    except Exception:
+                    except Exception:  # pylint: disable=broad-except
                         pass
                 availability[lrid]['description'] = lrdata['description']
             metadata['data_availability'] = availability
@@ -150,7 +152,9 @@ class BSRNMetadata(object):
         instr_chrono = {}
         for period in chronology:
 
-            metadata = chronology[period]
+            if not (metadata := chronology[period]):
+                continue
+
             if metadata is None:
                 continue
 
@@ -163,7 +167,7 @@ class BSRNMetadata(object):
                 id_qty = measurement.get('id_qty', None)
                 try:
                     qty = {} if id_qty is None else quantities[id_qty]
-                except Exception:
+                except Exception:  # pylint: disable=broad-except
                     qty = {} if id_qty is None else quantities[str(id_qty)]
 
                 if instr_id not in instr_chrono:
@@ -171,39 +175,46 @@ class BSRNMetadata(object):
                 instr_chrono[instr_id][period] = {}
                 instr_chrono[instr_id][period].update(qty)
 
-                instr_name = f'radiation_instrument_{instr_id}'
-                if instr_name not in metadata:
+                # UPDATED, 2023-03-17, to make consistent with a change in the
+                #   format of instruments in metadata
+                # - instr_name = f'radiation_instrument_{instr_id}'
+                # - if instr_name not in metadata:
+                # -     continue
+
+                # - instr_data = metadata[instr_name]
+
+                instr_data = None
+                for instrument in metadata['instruments']:
+                    if instrument['wrmc_id'] == instr_id:
+                        instr_data = instrument
+                        break
+
+                if instr_data is None:
+                    warnings.warn(f'missing instrument {instr_id} for {period}', UserWarning)
                     continue
 
-                instr_data = metadata[instr_name]
-
-                def get(attr_name, default=None):
-                    return instr_data.get(attr_name, default)
-
                 instr_chrono[instr_id][period].update(
-                    {'manufacturer': get('manufacturer'),
-                     'model': get('model'),
-                     'serial_number': get('serial_number'),
-                     'wrmc_id': get('wrmc_id')
+                    {'manufacturer': instr_data.get('manufacturer'),
+                     'model': instr_data.get('model'),
+                     'serial_number': instr_data.get('serial_number'),
+                     'wrmc_id': instr_data.get('wrmc_id')
                      })
 
                 calibration_bands = {}
                 for band in range(1, 4):
                     calibration_bands[f'calibration_band_{band}'] = {
-                        'wavelength': get(f'wavelength_of_band_{band}'),
-                        'bandwidth': get(f'bandwidth_of_band_{band}'),
+                        'wavelength': instr_data.get(f'wavelength_of_band_{band}'),
+                        'bandwidth': instr_data.get(f'bandwidth_of_band_{band}'),
                         'start_of_calibration_period':
-                            get(f'start_of_calibration_period_of_band_{band}'),
+                            instr_data.get(f'start_of_calibration_period_of_band_{band}'),
                         'end_of_calibration_period':
-                            get(f'end_of_calibration_period_of_band_{band}'),
+                            instr_data.get(f'end_of_calibration_period_of_band_{band}'),
                         'mean_calibration_coefficient':
-                            get('mean_calibration_coefficient'
-                                f'_of_band_{band}'),
+                            instr_data.get(f'mean_calibration_coefficient_of_band_{band}'),
                         'standard_error_of_calibration_coefficient':
-                            get('standard_error_of_calibration_'
-                                f'coefficient_of_band_{band}'),
+                            instr_data.get(f'standard_error_of_calibration_coefficient_of_band_{band}'),
                         'number_of_comparisons':
-                            get(f'number_of_comparisons_of_band_{band}')
+                            instr_data.get(f'number_of_comparisons_of_band_{band}')
                     }
                 instr_chrono[instr_id][period].update(calibration_bands)
 
@@ -212,7 +223,7 @@ class BSRNMetadata(object):
                         continue
                     if attr_name in instr_chrono[instr_id][period]:
                         continue
-                    instr_chrono[instr_id][period][attr_name] = get(attr_name)
+                    instr_chrono[instr_id][period][attr_name] = instr_data.get(attr_name)
 
         # remove void calibration bands
 
@@ -266,7 +277,7 @@ class BSRNMetadata(object):
             f'band{k}': v for k, v in data.items() if len(v) > 0})
         return df if len(df) > 0 else None
 
-    def to_excel(self, excel_fname, years=None, skip_void_periods=True):
+    def to_excel(self, excel_fname, years=None):
         chronology = self.get_chronology(years=years)
         chronology = {k: v for k, v in chronology.items() if v}
         instruments = self.get_instruments(years=years)
@@ -320,17 +331,18 @@ class BSRNMetadata(object):
                 excel.write(period, row=row, column=column)
                 column += 1
 
-                def write(attr_name):
+                def write_instr(attr_name):
+                    # pylint: disable=cell-var-from-loop
                     text = attributes.pop(attr_name, '') or ''
                     excel.write(text, row=row, column=column)
                     return column + 1
 
-                column = write('manufacturer')
-                column = write('model')
-                column = write('serial_number')
-                column = write('wrmc_id')
-                column = write('description')
-                column = write('unit')
+                column = write_instr('manufacturer')
+                column = write_instr('model')
+                column = write_instr('serial_number')
+                column = write_instr('wrmc_id')
+                column = write_instr('description')
+                column = write_instr('unit')
 
                 # calibration data...
                 for band_number in range(1, 4):
@@ -338,7 +350,8 @@ class BSRNMetadata(object):
                     if f'calibration_band_{band_number}' in attributes:
                         band = attributes[f'calibration_band_{band_number}']
 
-                        def write(attr_name, is_date=False):
+                        def write_band(attr_name, is_date=False):
+                            # pylint: disable=cell-var-from-loop
                             text = band.get(attr_name, '') or ''
                             cell = excel.write(text, row=row, column=column)
                             if (is_date is True) and (text != ''):
@@ -349,36 +362,37 @@ class BSRNMetadata(object):
                                     cell.value = datetime.date(
                                         year, month, day)
                                     cell.number_format = 'yyyy/mm/dd'
-                                except Exception:
+                                except Exception:  # pylint: disable=broad-except
                                     pass
                             return column + 1
 
                         start_column = column
-                        column = write('wavelength')
-                        column = write('waveband')
-                        column = write('start_of_calibration_period', True)
-                        column = write('end_of_calibration_period', True)
-                        column = write('mean_calibration_coefficient')
-                        column = write(
+                        column = write_band('wavelength')
+                        column = write_band('waveband')
+                        column = write_band('start_of_calibration_period', True)
+                        column = write_band('end_of_calibration_period', True)
+                        column = write_band('mean_calibration_coefficient')
+                        column = write_band(
                             'standard_error_of_calibration_coefficient')
-                        column = write('number_of_comparisons')
+                        column = write_band('number_of_comparisons')
 
                         if n_period == 0:
 
-                            def write(txt):
+                            def write_period_0(txt):
+                                # pylint: disable=cell-var-from-loop
                                 cell = excel.write(
                                     txt, row=header_row, column=column)
                                 cell.font = oxl.styles.Font(b=True)
                                 return column + 1
 
                             column = start_column
-                            column = write(f'WVL{band_number}')
-                            column = write(f'WBD{band_number}')
-                            column = write(f'STR{band_number}')
-                            column = write(f'END{band_number}')
-                            column = write(f'COE{band_number}')
-                            column = write(f'STD{band_number}')
-                            column = write(f'CMP{band_number}')
+                            column = write_period_0(f'WVL{band_number}')
+                            column = write_period_0(f'WBD{band_number}')
+                            column = write_period_0(f'STR{band_number}')
+                            column = write_period_0(f'END{band_number}')
+                            column = write_period_0(f'COE{band_number}')
+                            column = write_period_0(f'STD{band_number}')
+                            column = write_period_0(f'CMP{band_number}')
 
                         attributes = {
                             k: v for k, v in attributes.items()
@@ -409,7 +423,7 @@ class BSRNMetadata(object):
                                     attr_value['day'], attr_value['hour'],
                                     attr_value['minute'])
                                 cell.number_format = 'yyyy/mm/dd hh:mm'
-                            except Exception:
+                            except Exception:  # pylint: disable=broad-except
                                 pass
 
                     if n_period == 0:
@@ -437,8 +451,8 @@ class BSRNMetadata(object):
             excel.write(message, row=n_message+2, column=2, ha='left')
 
         excel.set_column_bestfit()
-        excel.wb._sheets.insert(0, excel.ws)
-        excel.wb._sheets.pop(-1)
+        excel.wb._sheets.insert(0, excel.ws)  # pylint: disable=protected-access
+        excel.wb._sheets.pop(-1)  # pylint: disable=protected-access
 
         # GENERAL INFO
 
@@ -481,8 +495,8 @@ class BSRNMetadata(object):
             column = write('station_id')
 
         excel.set_column_bestfit()
-        excel.wb._sheets.insert(0, excel.ws)
-        excel.wb._sheets.pop(-1)
+        excel.wb._sheets.insert(0, excel.ws)  # pylint: disable=protected-access
+        excel.wb._sheets.pop(-1)  # pylint: disable=protected-access
 
         # DATA AVAILABILITY
 
