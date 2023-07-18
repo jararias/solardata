@@ -54,7 +54,7 @@ def aeronet_filename(site, year, month, data_type, is_daily):
     is_daily: boolean
         True if the file contains daily data. False otherwise
     '''
-    
+
     avg = 'daily' if is_daily is True else 'all_points'
     return f'{site}_{year:d}{month:02d}_{avg}_{data_type.lower()}.dat.gz'
 
@@ -154,6 +154,9 @@ def update_void_index(site, data_type, daily, void_files=[]):
     aero_config = config.load()
     localdir = aero_config['localdir']
 
+    if isinstance(void_files, str):
+        void_files = [void_files]
+
     void_fn = void_index_filename(site, data_type, daily)
     local_fn = localdir.joinpath(site).joinpath(void_fn)
 
@@ -170,8 +173,8 @@ def update_void_index(site, data_type, daily, void_files=[]):
     all_void_files = set(known_void_files).union(void_files)
 
     # remove from the list of void files those files that exist in the dir.
-    all_files = glob.glob(localdir.joinpath('*.dat.gz'))
-    all_void_files = all_void_files.difference([fn.name for fn in all_files])
+    all_files = [fn.name for fn in localdir.joinpath(site).glob('*.dat.gz')]
+    all_void_files = all_void_files.difference(all_files)
 
     logger.debug(f'updating void-index file {void_fn} with '
                  f'void_files {sorted(all_void_files)}')

@@ -64,7 +64,7 @@ def sites_metadata(site=None, force=False, include_availability=False):
     aero_config = config.load()
     localdir = aero_config['localdir']
     server = aero_config['server']
-    
+
     base_fn = 'aeronet_locations_v3.txt'
     local_fn = localdir.joinpath(base_fn)
     remote_fn = base_fn
@@ -680,3 +680,21 @@ def load_data(site, year, month, data_type='AOD20', daily=False,
     logger.debug(f'elapsed time: {elapsed_time} seconds')
 
     return data, metadata
+
+
+def load(site, years, months=range(1, 13), **kwargs):
+    """
+    Like load_data (see above) but can load multiyear/multimonth periods
+    """
+
+    def listify(x):
+        return [x] if np.isscalar(x) else x
+
+    metadata = sites_metadata(site)
+
+    data = pd.concat(
+        [load_data(site, yr, mo, **kwargs)[0]
+         for yr in listify(years) for mo in listify(months)], axis=0)
+
+    return data, metadata
+

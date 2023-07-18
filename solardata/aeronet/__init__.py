@@ -5,7 +5,8 @@ from .core import (
     sites,
     sites_metadata,
     availability,
-    load_data
+    load_data,
+    load
 )
 
 from .resources import (
