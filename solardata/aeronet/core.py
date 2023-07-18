@@ -630,9 +630,10 @@ def load_data(site, year, month, data_type='AOD20', daily=False,
     ]
 
     data = pd.read_csv(local_fn, skiprows=column_names_line-1,
+                       date_format='%d:%m:%Y %H:%M:%S',
                        parse_dates=[[date_column_name, time_column_name]])
     times_utc = pd.to_datetime(data[f'{date_column_name}_{time_column_name}'],
-                                format='%d:%m:%Y %H:%M:%S')
+                               format='%d:%m:%Y %H:%M:%S')
     data = data.set_index(keys=f'{date_column_name}_{time_column_name}', drop=True)
     data.index.name = 'times_utc'
     data[data == -999] = float('nan')
