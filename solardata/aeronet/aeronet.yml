@@ -1,3 +1,3 @@
 # the !environ constructor interpolates environment variables. Don't forget quotation marks: !environ "..."
-localdir: !environ "{HOME}/.solardata/aeronet"
+localdir: !environ "{HOME}/.solardata/AERONET"
 server: https://aeronet.gsfc.nasa.gov/
