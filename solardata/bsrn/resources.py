@@ -177,6 +177,7 @@ def update_site_metadata_from_bsrn_web_site(force=False):
     # get the table of BSRN sites from the BSRN web site
     url = ('https://www.pangaea.de/ddi?request=bsrn/BSRNEvent&format'
            '=html&title=BSRN+Stations')
+    logger.info(f'url: {url}')
     r = requests.get(url)
 
     soup = BeautifulSoup(r.text, features='html.parser')
@@ -186,22 +187,24 @@ def update_site_metadata_from_bsrn_web_site(force=False):
 
     listing = {}
     for row in rows[1:]:
+        logger.debug(f'Parsing row: {row}')
         entries = [entry.getText().lstrip('&nbsp;')
                    for entry in row.findAll('td')]
         acronym = entries[1].lower()
         listing[acronym] = {
             'station': entries[0],
             'location': entries[2],
-            'latitude': float(entries[3]) if entries[3] != '' else -999.,
-            'longitude': float(entries[4]) if entries[4] != '' else -999.,
-            'elevation': float(entries[5]) if entries[5] != '' else -999.,
+            'info': entries[3],
+            'latitude': float(entries[4]) if entries[4] != '' else -999.,
+            'longitude': float(entries[5]) if entries[5] != '' else -999.,
+            'elevation': float(entries[6]) if entries[6] != '' else -999.,
             'datetime_start': (
-                datetime.strptime(entries[6], '%Y-%m-%d')
-                if entries[6] != '' else ''),
-            'datetime_end': (
                 datetime.strptime(entries[7], '%Y-%m-%d')
                 if entries[7] != '' else ''),
-            'remarks': '; '.join(entries[8:-1])
+            'datetime_end': (
+                datetime.strptime(entries[8], '%Y-%m-%d')
+                if entries[8] != '' else ''),
+            'remarks': '; '.join(entries[9:-1])
         }
 
     with out_fn.open('w') as f:

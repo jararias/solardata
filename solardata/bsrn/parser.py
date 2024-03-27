@@ -314,7 +314,7 @@ def parse_logical_record_0008(txt_data):
 
     while nline < len(txt_data):
         radinstr = {}
-        logger.debug('parsing radiation instrument %s', n_instrument)
+        logger.debug(f'parsing radiation instrument {n_instrument}')
         # date when change occurred
         pattern = ' (.{2}) (.{2}) (.{2}) (.)'
         m = parse(txt_data[nline], pattern, logical_record_id)
